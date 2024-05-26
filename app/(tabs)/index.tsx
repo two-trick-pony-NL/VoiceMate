@@ -10,12 +10,11 @@ import {
 } from 'react-native';
 import { useAuth } from '@/authentication/authContext';
 import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 
 export default function HomeScreen() {
-  const { logout, refreshAuthToken, authState } = useAuth();
+  const { logout, refreshToken, authState } = useAuth();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState([]);
 
@@ -52,7 +51,7 @@ export default function HomeScreen() {
       
       <ThemedView style={styles.stepContainer}>
       <Button title="Logout" onPress={logout} />
-        <Button title="RefreshAuthToken" onPress={refreshAuthToken} />
+        <Button title="RefreshAuthToken" onPress={refreshToken} />
         <ThemedText>
           <ThemedText type="subtitle">Fetching Data{' '}</ThemedText>
           <ThemedText type="defaultSemiBold">app-example</ThemedText>.

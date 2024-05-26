@@ -69,6 +69,34 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const refreshToken = async () => {
+    try {
+      const refreshToken = authState.refreshToken;
+      const response = await fetch('https://triage.voicemate.nl/api/user/token/refresh/', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refresh: refreshToken }),
+      });
+
+      console.log('Refreshing access token...');
+      const data = await response.json();
+      if (response.ok && data.access) {
+        console.log('Token refreshed successfully', data);
+        setAuthState(prevState => ({
+          ...prevState,
+          accessToken: data.access
+        }));
+      } else {
+        console.log('Token refresh failed', data);
+      }
+    } catch (error) {
+      console.error('Error refreshing token', error);
+    }
+  };
+
   const logout = async () => {
     // Remove tokens from secure storage
     await SecureStore.deleteItemAsync('accessToken');
@@ -81,7 +109,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ authState, login, logout }}>
+    <AuthContext.Provider value={{ authState, login, logout, refreshToken }}>
       {children}
     </AuthContext.Provider>
   );
