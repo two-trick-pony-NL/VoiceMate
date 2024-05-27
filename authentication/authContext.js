@@ -1,17 +1,18 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import axios from 'axios';
 
-const AuthContext = createContext();
+export const AuthContext = createContext();
+export const AxiosInstanceContext = createContext(); // Export AxiosInstanceContext
 
 export const AuthProvider = ({ children }) => {
   const [authState, setAuthState] = useState({
     isAuthenticated: false,
     accessToken: null,
-    refreshToken: null, // Add refreshToken state
+    refreshToken: null,
   });
 
   useEffect(() => {
-    // Check for saved tokens in secure storage
     const getStoredTokens = async () => {
       try {
         const accessToken = await SecureStore.getItemAsync('accessToken');
@@ -44,8 +45,38 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const axiosInstance = axios.create();
+
+  axiosInstance.interceptors.request.use(
+    async (config) => {
+      const accessToken = authState.accessToken;
+      if (accessToken) {
+        config.headers.Authorization = `Bearer ${accessToken}`;
+      }
+      return config;
+    },
+    (error) => {
+      return Promise.reject(error);
+    }
+  );
+
+  axiosInstance.interceptors.response.use(
+    (response) => {
+      return response;
+    },
+    async (error) => {
+      const originalRequest = error.config;
+
+      if (error.response.status === 401 && !originalRequest._retry) {
+        originalRequest._retry = true;
+        await refreshToken();
+        return axiosInstance(originalRequest);
+      }
+      return Promise.reject(error);
+    }
+  );
+
   const login = async (email, password) => {
-    // Simulate API call to authenticate user
     try {
       const response = await fetch('https://triage.voicemate.nl/api/user/token/', {
         method: 'POST',
@@ -91,14 +122,17 @@ export const AuthProvider = ({ children }) => {
         }));
       } else {
         console.log('Token refresh failed', data);
+        // If token refresh fails, call logout function. 
+        // The idea is that this forces the user to log in again and as such resets their
+        await logout();
       }
     } catch (error) {
       console.error('Error refreshing token', error);
+      await logout();
     }
   };
 
   const logout = async () => {
-    // Remove tokens from secure storage
     await SecureStore.deleteItemAsync('accessToken');
     await SecureStore.deleteItemAsync('refreshToken');
     setAuthState({
@@ -110,9 +144,12 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={{ authState, login, logout, refreshToken }}>
-      {children}
+      <AxiosInstanceContext.Provider value={axiosInstance}>
+        {children}
+      </AxiosInstanceContext.Provider>
     </AuthContext.Provider>
   );
 };
 
 export const useAuth = () => useContext(AuthContext);
+export const useAxiosInstance = () => useContext(AxiosInstanceContext);

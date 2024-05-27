@@ -6,40 +6,49 @@ import {
   View, 
   ActivityIndicator, 
   FlatList, 
-  Text 
+  Text,
+  RefreshControl
 } from 'react-native';
-import { useAuth } from '@/authentication/authContext';
+import { useAuth, useAxiosInstance } from '@/authentication/authContext';
 import { HelloWave } from '@/components/HelloWave';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 
 export default function HomeScreen() {
   const { logout, refreshToken, authState } = useAuth();
+  const axiosInstance = useAxiosInstance(); // Get the Axios instance
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState([]);
+  const [refreshing, setRefreshing] = useState(false); // Add refreshing state
+
+  const fetchData = async () => {
+    console.log("Refreshing data")
+    try {
+      const token = authState.accessToken;
+      const response = await axiosInstance.get('https://triage.voicemate.nl/api/calls/', {
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+      });
+      setData(response.data);
+      setLoading(false);
+      setRefreshing(false); // Set refreshing to false after data fetch
+    } catch (error) {
+      //console.error('Error fetching data:', error);
+      setLoading(false);
+      setRefreshing(false); // Set refreshing to false on error
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const token = authState.accessToken;
-        const response = await fetch('https://triage.voicemate.nl/api/calls/', {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-        });
-        const data = await response.json();
-        setData(data);
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        setLoading(false);
-      }
-    };
-
     fetchData();
-  }, [authState.accessToken]);
+  }, [authState.accessToken, axiosInstance]); // Add axiosInstance to dependency array
+
+  const onRefresh = () => {
+    setRefreshing(true); // Set refreshing to true when pull-to-refresh starts
+    fetchData(); // Fetch data again
+  };
 
   return (
     <View>
@@ -50,25 +59,27 @@ export default function HomeScreen() {
       </ThemedView>
       
       <ThemedView style={styles.stepContainer}>
-      <Button title="Logout" onPress={logout} />
+        <Button title="Logout" onPress={logout} />
         <Button title="RefreshAuthToken" onPress={refreshToken} />
         <ThemedText>
           <ThemedText type="subtitle">Fetching Data{' '}</ThemedText>
           <ThemedText type="defaultSemiBold">app-example</ThemedText>.
         </ThemedText>
-        {loading ? (
-          <ActivityIndicator size="large" color="#0000ff" />
-        ) : (
-          <FlatList
-            data={data}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={({ item }) => (
-              <View>
-                <Text>{item.caller}</Text>
-              </View>
-            )}
-          />
-        )}
+        <FlatList
+          data={data}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item }) => (
+            <View>
+              <Text>{item.caller}</Text>
+            </View>
+          )}
+          refreshControl={ // Add refreshControl prop to FlatList
+            <RefreshControl
+              refreshing={refreshing} // Set refreshing state
+              onRefresh={onRefresh} // Function to call when refreshing
+            />
+          }
+        />
       </ThemedView>
     </View>
   );
