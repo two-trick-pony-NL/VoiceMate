@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import axios from 'axios';
-
+import { jwtDecode } from "jwt-decode";
 export const AuthContext = createContext();
 export const AxiosInstanceContext = createContext(); // Export AxiosInstanceContext
 
@@ -111,7 +111,7 @@ export const AuthProvider = ({ children }) => {
         },
         body: JSON.stringify({ refresh: refreshToken }),
       });
-
+  
       console.log('Refreshing access token...');
       const data = await response.json();
       if (response.ok && data.access) {
@@ -120,6 +120,19 @@ export const AuthProvider = ({ children }) => {
           ...prevState,
           accessToken: data.access
         }));
+  
+        // Decode the refresh token to check expiration time
+        const decodedToken = jwtDecode(refreshToken);
+        const currentTime = Math.floor(Date.now() / 1000); // Get current time in seconds
+        const expiresIn = decodedToken.exp - currentTime; // Calculate time until expiration
+        console.log('Refresh token expires in', expiresIn, 'seconds');
+  
+        // Check if token has expired
+        if (expiresIn <= 0) {
+          console.log('Token has expired. Logging out...');
+          await logout();
+          return;
+        }
       } else {
         console.log('Token refresh failed', data);
         // If token refresh fails, call logout function. 
@@ -131,6 +144,7 @@ export const AuthProvider = ({ children }) => {
       await logout();
     }
   };
+  
 
   const logout = async () => {
     await SecureStore.deleteItemAsync('accessToken');
