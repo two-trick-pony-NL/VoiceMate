@@ -112,10 +112,10 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ refresh: refreshToken }),
       });
   
-      console.log('Refreshing access token...');
+      console.log('Access token expired. Refreshing access token...');
       const data = await response.json();
       if (response.ok && data.access) {
-        console.log('Token refreshed successfully', data);
+        
         setAuthState(prevState => ({
           ...prevState,
           accessToken: data.access
@@ -125,8 +125,11 @@ export const AuthProvider = ({ children }) => {
         const decodedToken = jwtDecode(refreshToken);
         const currentTime = Math.floor(Date.now() / 1000); // Get current time in seconds
         const expiresIn = decodedToken.exp - currentTime; // Calculate time until expiration
-        console.log('Refresh token expires in', expiresIn, 'seconds');
-  
+        const days = Math.floor(expiresIn / (3600 * 24));
+        const hours = Math.floor((expiresIn % (3600 * 24)) / 3600);
+        const minutes = Math.floor((expiresIn % 3600) / 60);
+        console.log(`Refresh token valid for ${days} days ${hours} hours and ${minutes} minutes`);
+        console.log('Token refreshed successfully', data);
         // Check if token has expired
         if (expiresIn <= 0) {
           console.log('Token has expired. Logging out...');
